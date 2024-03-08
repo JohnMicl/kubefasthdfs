@@ -17,5 +17,12 @@
 # Dependency directories (remove the comment below to include it)
 # vendor/
 
+build/out
+build/bin
+build/lib
+build/include
+
+depends
+
 # Go workspace file
 go.work
