@@ -1,0 +1,88 @@
+package rocksdb
+
+import (
+	"fmt"
+	"os"
+
+	"github.com/tecbot/gorocksdb"
+)
+
+type RocksDBStore struct {
+	dir string
+	db  *gorocksdb.DB
+}
+
+func NewRocksDBStore(dir string, lruCacheSize int, writeBufferSize int) (*RocksDBStore, error) {
+	if err := os.MkdirAll(dir, os.ModePerm); err != nil {
+		return nil, err
+	}
+	store := &RocksDBStore{dir: dir}
+	if err := store.Open(lruCacheSize, writeBufferSize); err != nil {
+		return nil, err
+	}
+	return store, nil
+}
+
+// Open opens the RocksDB instance.
+func (rs *RocksDBStore) Open(lruCacheSize int, writeBufferSize int) error {
+	basedTableOptions := gorocksdb.NewDefaultBlockBasedTableOptions()
+	basedTableOptions.SetBlockCache(gorocksdb.NewLRUCache(uint64(lruCacheSize)))
+	opts := gorocksdb.NewDefaultOptions()
+	opts.SetBlockBasedTableFactory(basedTableOptions)
+	opts.SetCreateIfMissing(true)
+	opts.SetWriteBufferSize(writeBufferSize)
+	opts.SetMaxWriteBufferNumber(2)
+	opts.SetCompression(gorocksdb.NoCompression)
+	db, err := gorocksdb.OpenDb(opts, rs.dir)
+	if err != nil {
+		err = fmt.Errorf("action[openRocksDB],err:%v", err)
+		return err
+	}
+	rs.db = db
+	return nil
+}
+
+// Put adds a new key-value pair to the RocksDB.
+func (rs *RocksDBStore) Put(key, value interface{}, isSync bool) (interface{}, error) {
+	wo := gorocksdb.NewDefaultWriteOptions()
+	wb := gorocksdb.NewWriteBatch()
+	wo.SetSync(isSync)
+	defer func() {
+		wo.Destroy()
+		wb.Destroy()
+	}()
+	wb.Put([]byte(key.(string)), value.([]byte))
+	if err := rs.db.Write(wo, wb); err != nil {
+		return nil, err
+	}
+	result := value
+	return result, nil
+}
+
+// Get returns the value based on the given key.
+func (rs *RocksDBStore) Get(key interface{}) (interface{}, error) {
+	ro := gorocksdb.NewDefaultReadOptions()
+	ro.SetFillCache(false)
+	defer ro.Destroy()
+	return rs.db.GetBytes(ro, []byte(key.(string)))
+}
+
+// Del deletes a key-value pair.
+func (rs *RocksDBStore) Del(key interface{}, isSync bool) (result interface{}, err error) {
+	ro := gorocksdb.NewDefaultReadOptions()
+	wo := gorocksdb.NewDefaultWriteOptions()
+	wb := gorocksdb.NewWriteBatch()
+	wo.SetSync(isSync)
+	defer func() {
+		wo.Destroy()
+		ro.Destroy()
+		wb.Destroy()
+	}()
+	slice, err := rs.db.Get(ro, []byte(key.(string)))
+	if err != nil {
+		return
+	}
+	result = slice.Data()
+	err = rs.db.Delete(wo, []byte(key.(string)))
+	return
+}
