@@ -1,0 +1,16 @@
+#日志设置
+logInfo:
+  #日志输出级别，debug/info/warn/error
+  level: "info"
+  #日志文件
+  serviceName: "kubefasthdfs"
+  #是否打印控制台
+  stdOut: true
+  #在进行切割之前，日志文件的最大大小（以MB为单位）
+  maxSize: 100
+  #保留旧文件的最大个数
+  maxBackups: 100
+  #保留旧文件的最大天数
+  maxAges: 60
+  #是否压缩/归档旧文件
+  compress: false
