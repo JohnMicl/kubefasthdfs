@@ -41,12 +41,11 @@ func init() {
 		fmt.Fprintf(os.Stderr, "Usage: %s [options] <raft-data-path> \n", os.Args[0])
 		flag.PrintDefaults()
 	}
+	flag.Parse()
 }
 
 func main() {
-	flag.Parse()
 	err := utils.ParseYamlFile(*confYaml, &config.Config)
-
 	if err != nil {
 		fmt.Printf("Parse yaml failed =%+v\n", err)
 		return
@@ -58,11 +57,14 @@ func main() {
 	}
 	logger.Logger.Info("logger init success!")
 
+	logger.Logger.Info(fmt.Sprintf("cmd info only joinAddr=%+v\n", joinAddr))
+
 	if flag.NArg() == 0 {
 		fmt.Fprintf(os.Stderr, "No Raft storage directory specified\n")
 		os.Exit(1)
 	}
 
+	logger.Logger.Info(fmt.Sprintf("cmd info, inmme=%+v, httpAddr=%+v, raftAddr=%+v, joinAddr=%+v, nodeId=%+v\n", inmem, httpAddr, raftAddr, joinAddr, nodeID))
 	if nodeID == "" {
 		nodeID = raftAddr
 	}
@@ -80,7 +82,7 @@ func main() {
 	s.RaftDir = raftDir
 	s.RaftBind = raftAddr
 	if err := s.Open(joinAddr == "", nodeID); err != nil {
-		log.Fatalf("failed to open store: %s", err.Error())
+		log.Fatalf("failed to open store: %s, joinAddr: %s, nodeId: %s", err.Error(), joinAddr, nodeID)
 	}
 
 	h := httpd.New(httpAddr, s)
