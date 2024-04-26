@@ -45,6 +45,8 @@ func (s *Store) Open(enableSingle bool, localID string) error {
 	// Setup Raft configuration.
 	config := raft.DefaultConfig()
 	config.LocalID = raft.ServerID(localID)
+	config.SnapshotInterval = 60 * time.Second
+	config.SnapshotThreshold = 200
 
 	// Setup Raft communication.
 	addr, err := net.ResolveTCPAddr("tcp", s.RaftBind)
@@ -122,13 +124,14 @@ func (s *Store) Delete(key string) error {
 
 func (s *Store) applycmd(c *command) error {
 	if s.raft.State() != raft.Leader {
+		// here need to foward cmd to leader to do, for simple just get failed
 		return fmt.Errorf("not leader")
 	}
 	b, err := json.Marshal(c)
 	if err != nil {
 		return err
 	}
-
+	fmt.Printf("get log to replicate = %+v\n", *c)
 	f := s.raft.Apply(b, raftTimeout)
 	return f.Error()
 }
