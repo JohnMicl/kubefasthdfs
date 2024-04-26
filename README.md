@@ -3,7 +3,7 @@
 # store using mem
 # bootstrap seed node
 ```bash
-./kubefasthdfs -id node0 -inmem true ~/testkubefasthdfs/node0
+./kubefasthdfs -id node0 -inmem ~/testkubefasthdfs/node0
 ```
 
 #

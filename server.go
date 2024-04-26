@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 )
 
 var confYaml = flag.String("c", "conf.yaml", "config file name")
@@ -78,7 +79,12 @@ func main() {
 		log.Fatalf("failed to create path for Raft storage: %s", err.Error())
 	}
 
-	s := store.NewStore(inmem)
+	rocksdbDir := filepath.Join(raftDir, "rocksdb")
+	s, err := store.NewStore(inmem, rocksdbDir)
+	if err != nil {
+		log.Fatalf("failed to create path for rocksdb storage: %s, dir= %s", err.Error(), rocksdbDir)
+	}
+
 	s.RaftDir = raftDir
 	s.RaftBind = raftAddr
 	if err := s.Open(joinAddr == "", nodeID); err != nil {

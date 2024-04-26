@@ -2,9 +2,25 @@ package rocksdb
 
 import (
 	"fmt"
+	"kubefasthdfs/logger"
 	"os"
 
 	"github.com/tecbot/gorocksdb"
+)
+
+const (
+	_  = iota
+	KB = 1 << (10 * iota)
+	MB
+	GB
+	TB
+	PB
+	DefaultDataPartitionSize = 120 * GB
+	TaskWorkerInterval       = 1
+)
+const (
+	LRUCacheSize    = 3 << 30
+	WriteBufferSize = 4 * MB
 )
 
 type RocksDBStore struct {
@@ -16,6 +32,7 @@ func NewRocksDBStore(dir string, lruCacheSize int, writeBufferSize int) (*RocksD
 	if err := os.MkdirAll(dir, os.ModePerm); err != nil {
 		return nil, err
 	}
+	logger.Logger.Info("rocksdb dir=" + dir)
 	store := &RocksDBStore{dir: dir}
 	if err := store.Open(lruCacheSize, writeBufferSize); err != nil {
 		return nil, err

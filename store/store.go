@@ -5,9 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"kubefasthdfs/logger"
+	"kubefasthdfs/rocksdb"
 	"net"
 	"os"
-	"sync"
 	"time"
 
 	"github.com/hashicorp/raft"
@@ -23,16 +23,22 @@ type Store struct {
 	RaftBind string
 	raft     *raft.Raft // The consensus mechanism
 	inmem    bool
-	mu       sync.Mutex
-	m        map[string]string // The key-value store for the system.
+	// mu       sync.Mutex
+	// m        map[string]string // The key-value store for the system.
+	// change m to rocksdb
+	rocksDBStore *rocksdb.RocksDBStore
 }
 
 // NewStore returns a new Store.
-func NewStore(inmem bool) *Store {
-	return &Store{
-		inmem: inmem,
-		m:     make(map[string]string),
+func NewStore(inmem bool, rocksdir string) (*Store, error) {
+	rbd, err := rocksdb.NewRocksDBStore(rocksdir, rocksdb.LRUCacheSize, rocksdb.WriteBufferSize)
+	if err != nil {
+		return nil, err
 	}
+	return &Store{
+		inmem:        inmem,
+		rocksDBStore: rbd,
+	}, nil
 }
 
 func (s *Store) Open(enableSingle bool, localID string) error {
@@ -89,9 +95,11 @@ func (s *Store) Open(enableSingle bool, localID string) error {
 }
 
 func (s *Store) Get(key string) (string, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.m[key], nil
+	// s.mu.Lock()
+	// defer s.mu.Unlock()
+	// return s.m[key], nil
+	value, err := s.rocksDBStore.Get(key)
+	return string(value.([]byte)), err
 }
 
 func (s *Store) Set(key, value string) error {
