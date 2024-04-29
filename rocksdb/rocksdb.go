@@ -2,9 +2,25 @@ package rocksdb
 
 import (
 	"fmt"
+	"kubefasthdfs/logger"
 	"os"
 
 	"github.com/tecbot/gorocksdb"
+)
+
+const (
+	_  = iota
+	KB = 1 << (10 * iota)
+	MB
+	GB
+	TB
+	PB
+	DefaultDataPartitionSize = 120 * GB
+	TaskWorkerInterval       = 1
+)
+const (
+	LRUCacheSize    = 3 << 30
+	WriteBufferSize = 4 * MB
 )
 
 type RocksDBStore struct {
@@ -16,6 +32,7 @@ func NewRocksDBStore(dir string, lruCacheSize int, writeBufferSize int) (*RocksD
 	if err := os.MkdirAll(dir, os.ModePerm); err != nil {
 		return nil, err
 	}
+	logger.Logger.Info("rocksdb dir=" + dir)
 	store := &RocksDBStore{dir: dir}
 	if err := store.Open(lruCacheSize, writeBufferSize); err != nil {
 		return nil, err
@@ -59,6 +76,25 @@ func (rs *RocksDBStore) Put(key, value interface{}, isSync bool) (interface{}, e
 	return result, nil
 }
 
+// BatchPut puts the key-value pairs in batch.
+func (rs *RocksDBStore) BatchPut(cmdMap map[string][]byte, isSync bool) error {
+	wo := gorocksdb.NewDefaultWriteOptions()
+	wo.SetSync(isSync)
+	wb := gorocksdb.NewWriteBatch()
+	defer func() {
+		wo.Destroy()
+		wb.Destroy()
+	}()
+	for key, value := range cmdMap {
+		wb.Put([]byte(key), value)
+	}
+	if err := rs.db.Write(wo, wb); err != nil {
+		err = fmt.Errorf("action[batchPutToRocksDB],err:%v", err)
+		return err
+	}
+	return nil
+}
+
 // Get returns the value based on the given key.
 func (rs *RocksDBStore) Get(key interface{}) (interface{}, error) {
 	ro := gorocksdb.NewDefaultReadOptions()
@@ -85,4 +121,31 @@ func (rs *RocksDBStore) Del(key interface{}, isSync bool) (result interface{}, e
 	result = slice.Data()
 	err = rs.db.Delete(wo, []byte(key.(string)))
 	return
+}
+
+// RocksDBSnapshot returns the RocksDB snapshot.
+func (rs *RocksDBStore) RocksDBSnapshot() *gorocksdb.Snapshot {
+	return rs.db.NewSnapshot()
+}
+
+// ReleaseSnapshot releases the snapshot and its resources.
+func (rs *RocksDBStore) ReleaseSnapshot(snapshot *gorocksdb.Snapshot) {
+	rs.db.ReleaseSnapshot(snapshot)
+}
+
+// Iterator returns the iterator of the snapshot.
+func (rs *RocksDBStore) Iterator(snapshot *gorocksdb.Snapshot) *gorocksdb.Iterator {
+	ro := gorocksdb.NewDefaultReadOptions()
+	ro.SetFillCache(false)
+	ro.SetSnapshot(snapshot)
+
+	return rs.db.NewIterator(ro)
+}
+
+// Iterator returns the lastest iterator
+func (rs *RocksDBStore) LastestIterator() *gorocksdb.Iterator {
+	ro := gorocksdb.NewDefaultReadOptions()
+	ro.SetFillCache(false)
+
+	return rs.db.NewIterator(ro)
 }
