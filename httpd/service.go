@@ -14,10 +14,10 @@ import (
 // Store is the interface Raft-backed key-value stores must implement.
 type Store interface {
 	// Get returns the value for the given key.
-	Get(key string) (string, error)
+	GetBystr(key string) (string, error)
 
 	// Set sets the value for the given key, via distributed consensus.
-	Set(key, value string) error
+	SetByStr(key, value string) error
 
 	// Delete removes the given key, via distributed consensus.
 	Delete(key string) error
@@ -128,7 +128,7 @@ func (s *Service) handleKeyRequest(w http.ResponseWriter, r *http.Request) {
 		if k == "" {
 			w.WriteHeader(http.StatusBadRequest)
 		}
-		v, err := s.store.Get(k)
+		v, err := s.store.GetBystr(k)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
@@ -149,7 +149,7 @@ func (s *Service) handleKeyRequest(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		for k, v := range m {
-			if err := s.store.Set(k, v); err != nil {
+			if err := s.store.SetByStr(k, v); err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}

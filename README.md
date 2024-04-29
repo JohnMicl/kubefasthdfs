@@ -6,6 +6,9 @@
 ./kubefasthdfs -id node0 -inmem ~/testkubefasthdfs/node0
 ```
 
+## using rocksdb to store data
+./kubefasthdfs -id node0 ~/testkubefasthdfs/node0
+
 #
 ```bash
 curl -XPOST localhost:11000/key -d '{"user1": "batman"}'
@@ -19,6 +22,12 @@ curl -XGET localhost:11000/key/user1
 ```bash
 ./kubefasthdfs -id node1 -inmem -haddr localhost:11001 -raddr localhost:12001 -join localhost:11000 ~/testkubefasthdfs/node1
 ./kubefasthdfs -id node2 -inmem -haddr localhost:11002 -raddr localhost:12002 -join localhost:11000 ~/testkubefasthdfs/node2
+```
+
+## using rocksdb to store data
+```bash
+./kubefasthdfs -id node1 -haddr localhost:11001 -raddr localhost:12001 -join localhost:11000 ~/testkubefasthdfs/node1
+./kubefasthdfs -id node2 -haddr localhost:11002 -raddr localhost:12002 -join localhost:11000 ~/testkubefasthdfs/node2
 ```
 
 # test other node

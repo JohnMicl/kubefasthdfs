@@ -3,7 +3,11 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
 	"fmt"
+	"kubefasthdfs/config"
+	"kubefasthdfs/logger"
+	"kubefasthdfs/rocksdb"
 	"math/rand"
 	"net/http"
 	_ "net/http/pprof"
@@ -12,7 +16,75 @@ import (
 )
 
 func main() {
+	// nums1 := []int{1, 2, 100, 2, 3, 4, 7, 6, 5, 4, 1002, 10003, 30001, 10, 5, 2}
+	// mymergesort1(nums1)
+	// fmt.Println(nums1)
+	// // nums2 := []int{1, 2, 100, 2, 3, 4, 7, 6, 5, 4, 1002, 10003, 30001, 10, 5, 2}
+	// // mymergesort2(nums2)
+	// nums3 := []int{1, 2, 100, 2, 3, 4, 7, 6, 5, 4, 1002, 10003, 30001, 10, 5, 2}
+	// sort.Ints(nums3)
+	// fmt.Println(nums3)
+	err := logger.InitLogger(config.Config.LogInfo)
+	if err != nil {
+		panic(fmt.Sprintf("logger init err:%v", err))
+	}
+	logger.Logger.Info("logger init success!")
+	test := "raft_log_"
+	rbd, err := rocksdb.NewRocksDBStore("/tmp/testrocksdb", rocksdb.LRUCacheSize, rocksdb.WriteBufferSize)
+	if err != nil {
+		fmt.Println("Error")
+		os.Exit(1)
+	}
+	num := int64(12322)
+	buf := make([]byte, 8)
+	binary.BigEndian.PutUint64(buf, uint64(num))
+	test += string(buf)
+	rbd.Put(test, []byte(test), false)
 
+	data, err := rbd.Get(test)
+	if err != nil {
+		fmt.Println("Error2")
+		os.Exit(1)
+	}
+	fmt.Println(data.([]byte), len(data.([]byte)), len("raft_log_"), (data.([]byte))[len("raft_log_"):])
+	index := (data.([]byte))[len("raft_log_"):]
+	if len(index) == 8 {
+		num = int64(binary.BigEndian.Uint64(index))
+		fmt.Println(num)
+	}
+}
+
+func mymergesort1(nums []int) {
+	dst := make([]int, len(nums))
+	for seq := 1; seq < len(nums); seq++ {
+		for start := 0; start < len(nums); start += seq * 2 {
+			mid := min(start+seq, len(nums))
+			end := min(start+2*seq, len(nums))
+			j := mid
+			i := start
+			k := start
+			for i < mid || j < end {
+				if j < end && nums[j] < nums[i] {
+					dst[k] = nums[j]
+					k++
+					j++
+				} else {
+					dst[k] = nums[i]
+					k++
+					i++
+				}
+			}
+		}
+		tmp := nums
+		nums = dst
+		dst = tmp
+	}
+}
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 func pulseTest2() {

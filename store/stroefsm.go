@@ -52,22 +52,21 @@ func (f *fsm) Snapshot() (raft.FSMSnapshot, error) {
 func (f *fsm) Restore(rc io.ReadCloser) error {
 	cmdMap := make(map[string][]byte)
 
-	// 从snapshot中读取键值对
+	// here we decode data from rc, the data type is fsmSnapShot
 	decoder := gob.NewDecoder(rc)
-	var keyvalue fsmSnapShotUint
-	id := 1
-	for {
-		err := decoder.Decode(&keyvalue)
-		if errors.Is(err, io.EOF) {
-			break
-		} else if err != nil {
-			return err
-		}
-		fmt.Printf("resotre id=%+v, data=%+v", id, keyvalue)
-		cmdMap[string(keyvalue.Key)] = keyvalue.Value
+	var snapshot fsmSnapShot
+	err := decoder.Decode(&snapshot)
+	if err != nil && !errors.Is(err, io.EOF) {
+		return err
 	}
 
-	fmt.Printf("batch put data=%+v", cmdMap)
+	// when recover, we need to get all []fsmSnapShotUint data,
+	// after that in mem, put it to rocksdb to recover data
+	for id := 0; id < len(snapshot.UnitList); id++ {
+		logger.Logger.Info(fmt.Sprintf("resotre id=%+v, data=%+v\n", id, snapshot.UnitList[id]))
+		datakv := snapshot.UnitList[id]
+		cmdMap[string(datakv.Key)] = datakv.Value
+	}
 	f.rocksDBStore.BatchPut(cmdMap, true)
 	return nil
 }
@@ -101,27 +100,26 @@ func (f *fsmSnapshot) Persist(sink raft.SnapshotSink) error {
 	iter := f.db.Iterator(snap)
 	defer iter.Close()
 
-	id := 0
+	snapshots := fsmSnapShot{}
 	for iter.SeekToFirst(); iter.Valid(); iter.Next() {
 		// how to choose a better way to encode store this?
 		uintkv := fsmSnapShotUint{
 			Key:   iter.Key().Data(),
 			Value: iter.Value().Data(),
 		}
-
-		buffer := new(bytes.Buffer)
-		encoder := gob.NewEncoder(buffer)
-		err := encoder.Encode(uintkv)
-		if err != nil {
-			// snapshot need to release
-			f.db.ReleaseSnapshot(snap)
-			return errors.New("failed to snapshot, release it now")
-		}
-		id++
-		fmt.Printf("persist write data id=%+v, data=%+v", id, uintkv)
-		sink.Write(buffer.Bytes())
+		logger.Logger.Info(fmt.Sprintf("persist write data data=%+v", uintkv))
+		snapshots.UnitList = append(snapshots.UnitList, uintkv)
 	}
 
+	buffer := new(bytes.Buffer)
+	encoder := gob.NewEncoder(buffer)
+	err := encoder.Encode(snapshots)
+	if err != nil {
+		// snapshot need to release
+		f.db.ReleaseSnapshot(snap)
+		return errors.New("failed to snapshot, release it now")
+	}
+	sink.Write(buffer.Bytes())
 	if err := sink.Close(); err != nil {
 		return errors.New("failed close write data to snapshot")
 	}
@@ -138,6 +136,10 @@ func (f *fsmSnapshot) Release() {
 		f.db.ReleaseSnapshot(snap)
 	default:
 	}
+}
+
+type fsmSnapShot struct {
+	UnitList []fsmSnapShotUint
 }
 
 type fsmSnapShotUint struct {

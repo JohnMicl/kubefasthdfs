@@ -2,7 +2,6 @@ package store
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"kubefasthdfs/logger"
 	"kubefasthdfs/rocksdb"
@@ -19,13 +18,10 @@ const (
 )
 
 type Store struct {
-	RaftDir  string
-	RaftBind string
-	raft     *raft.Raft // The consensus mechanism
-	inmem    bool
-	// mu       sync.Mutex
-	// m        map[string]string // The key-value store for the system.
-	// change m to rocksdb
+	RaftDir      string
+	RaftBind     string
+	raft         *raft.Raft // The consensus mechanism
+	inmem        bool
 	rocksDBStore *rocksdb.RocksDBStore
 }
 
@@ -45,8 +41,9 @@ func (s *Store) Open(enableSingle bool, localID string) error {
 	// Setup Raft configuration.
 	config := raft.DefaultConfig()
 	config.LocalID = raft.ServerID(localID)
-	config.SnapshotInterval = 60 * time.Second
-	config.SnapshotThreshold = 200
+	// just need to debug meta data
+	// config.SnapshotInterval = 60 * time.Second
+	// config.SnapshotThreshold = 200
 
 	// Setup Raft communication.
 	addr, err := net.ResolveTCPAddr("tcp", s.RaftBind)
@@ -71,7 +68,9 @@ func (s *Store) Open(enableSingle bool, localID string) error {
 		logStore = raft.NewInmemStore()
 		stableStore = raft.NewInmemStore()
 	} else {
-		return errors.New("only mem store now, others not support")
+		// using rocks db to store log and persist data
+		logStore = s
+		stableStore = s
 	}
 
 	// Instantiate the Raft systems.
@@ -96,15 +95,12 @@ func (s *Store) Open(enableSingle bool, localID string) error {
 	return nil
 }
 
-func (s *Store) Get(key string) (string, error) {
-	// s.mu.Lock()
-	// defer s.mu.Unlock()
-	// return s.m[key], nil
+func (s *Store) GetBystr(key string) (string, error) {
 	value, err := s.rocksDBStore.Get(key)
 	return string(value.([]byte)), err
 }
 
-func (s *Store) Set(key, value string) error {
+func (s *Store) SetByStr(key, value string) error {
 	c := &command{
 		Op:    "set",
 		Key:   key,

@@ -141,3 +141,11 @@ func (rs *RocksDBStore) Iterator(snapshot *gorocksdb.Snapshot) *gorocksdb.Iterat
 
 	return rs.db.NewIterator(ro)
 }
+
+// Iterator returns the lastest iterator
+func (rs *RocksDBStore) LastestIterator() *gorocksdb.Iterator {
+	ro := gorocksdb.NewDefaultReadOptions()
+	ro.SetFillCache(false)
+
+	return rs.db.NewIterator(ro)
+}
