@@ -1,5 +1,13 @@
 # kubefasthdfs
 
+初次编译, 需要执行makefile, 安装编译rocksdb相关内容, 需要depends包, 该包不在代码仓内
+make 
+make执行完后会生成sever二进制，
+server就是下文中执行的kubefasthdfs，必要时将kubefasthdfs，必要时将kubefasthdfs替代为server
+
+整体架构图如下，所有节点均为此架构，leader节点相较于其它节点会有更多功能
+![](pictures/architecture.drawio.png)
+
 # store using mem
 # bootstrap seed node
 ```bash
